@@ -1,0 +1,18 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Runtime / Generated artifacts
+warehouse.json
+warehouse_audit.log
+
+# Testing & tool caches
+.pytest_cache/
+.coverage
+htmlcov/
