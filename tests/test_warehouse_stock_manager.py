@@ -1,6 +1,5 @@
 """Unit and regression tests for warehouse_stock_manager module."""
 
-import json
 import os
 import tempfile
 import unittest
@@ -109,6 +108,34 @@ class TestWarehouseStockManager(unittest.TestCase):
         wsm.add_stock("ITEM-KEEP", 99)
         wsm.load_stock("non_existent_file_xyz123.json")
         self.assertEqual(wsm.get_stock("ITEM-KEEP"), 99)
+
+    def test_apply_adjustment_authorized(self) -> None:
+        """Test supervisor adjustment with valid credentials and formula."""
+        wsm.add_stock("ADJ-1", 10)
+        success = wsm.apply_adjustment("ADJ-1", "current + 15", "wh-admin-1234")
+        self.assertTrue(success)
+        self.assertEqual(wsm.get_stock("ADJ-1"), 25)
+
+    def test_apply_adjustment_unauthorized(self) -> None:
+        """Test supervisor adjustment rejects invalid credentials."""
+        wsm.add_stock("ADJ-2", 10)
+        success = wsm.apply_adjustment("ADJ-2", "current + 15", "wrong-secret")
+        self.assertFalse(success)
+        self.assertEqual(wsm.get_stock("ADJ-2"), 10)
+
+    def test_apply_adjustment_unsafe_formula(self) -> None:
+        """Test that unsafe expressions and function calls are rejected."""
+        wsm.add_stock("ADJ-3", 10)
+        with self.assertRaises(ValueError):
+            wsm.apply_adjustment("ADJ-3", "__import__('os').system('echo pwn')", "wh-admin-1234")
+        with self.assertRaises(ValueError):
+            wsm.apply_adjustment("ADJ-3", "current / 2", "wh-admin-1234")
+
+    def test_apply_adjustment_negative_result(self) -> None:
+        """Test that formulas yielding negative quantities are rejected."""
+        wsm.add_stock("ADJ-4", 5)
+        with self.assertRaises(ValueError):
+            wsm.apply_adjustment("ADJ-4", "current - 20", "wh-admin-1234")
 
 
 if __name__ == "__main__":
