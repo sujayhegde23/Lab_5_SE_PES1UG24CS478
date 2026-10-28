@@ -33,7 +33,7 @@ class TestWarehouseStockManager(unittest.TestCase):
             wsm.add_stock("", 10)
 
     def test_add_stock_invalid_qty(self) -> None:
-        """Test negative or non-integer quantities are rejected with ValueError."""
+        """Test negative quantities are rejected with ValueError."""
         with self.assertRaises(ValueError):
             wsm.add_stock("SKU-101", -5)
 
@@ -52,7 +52,7 @@ class TestWarehouseStockManager(unittest.TestCase):
         self.assertEqual(wsm.get_stock("SKU-200"), 30)
 
     def test_remove_stock_to_zero(self) -> None:
-        """Test removing exact remaining quantity removes SKU from active stock."""
+        """Test removing remaining quantity removes SKU from active stock."""
         wsm.add_stock("SKU-201", 15)
         wsm.remove_stock("SKU-201", 15)
         with self.assertRaises(KeyError):
@@ -90,7 +90,9 @@ class TestWarehouseStockManager(unittest.TestCase):
     def test_save_and_load_stock(self) -> None:
         """Test saving inventory to JSON and reloading preserves data."""
         wsm.add_stock("ITEM-SAVE", 42)
-        with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".json") as tmp:
+        with tempfile.NamedTemporaryFile(
+            "w+", delete=False, suffix=".json"
+        ) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -104,7 +106,7 @@ class TestWarehouseStockManager(unittest.TestCase):
                 os.remove(tmp_path)
 
     def test_load_stock_missing_file_preserves_stock(self) -> None:
-        """Test loading from a nonexistent file does not crash or erase stock."""
+        """Test loading from missing file does not erase stock."""
         wsm.add_stock("ITEM-KEEP", 99)
         wsm.load_stock("non_existent_file_xyz123.json")
         self.assertEqual(wsm.get_stock("ITEM-KEEP"), 99)
@@ -112,14 +114,18 @@ class TestWarehouseStockManager(unittest.TestCase):
     def test_apply_adjustment_authorized(self) -> None:
         """Test supervisor adjustment with valid credentials and formula."""
         wsm.add_stock("ADJ-1", 10)
-        success = wsm.apply_adjustment("ADJ-1", "current + 15", "wh-admin-1234")
+        success = wsm.apply_adjustment(
+            "ADJ-1", "current + 15", "wh-admin-1234"
+        )
         self.assertTrue(success)
         self.assertEqual(wsm.get_stock("ADJ-1"), 25)
 
     def test_apply_adjustment_unauthorized(self) -> None:
         """Test supervisor adjustment rejects invalid credentials."""
         wsm.add_stock("ADJ-2", 10)
-        success = wsm.apply_adjustment("ADJ-2", "current + 15", "wrong-secret")
+        success = wsm.apply_adjustment(
+            "ADJ-2", "current + 15", "wrong-secret"
+        )
         self.assertFalse(success)
         self.assertEqual(wsm.get_stock("ADJ-2"), 10)
 
@@ -127,7 +133,11 @@ class TestWarehouseStockManager(unittest.TestCase):
         """Test that unsafe expressions and function calls are rejected."""
         wsm.add_stock("ADJ-3", 10)
         with self.assertRaises(ValueError):
-            wsm.apply_adjustment("ADJ-3", "__import__('os').system('echo pwn')", "wh-admin-1234")
+            wsm.apply_adjustment(
+                "ADJ-3",
+                "__import__('os').system('echo pwn')",
+                "wh-admin-1234",
+            )
         with self.assertRaises(ValueError):
             wsm.apply_adjustment("ADJ-3", "current / 2", "wh-admin-1234")
 

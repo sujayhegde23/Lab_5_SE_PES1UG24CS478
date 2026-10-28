@@ -66,19 +66,24 @@ def safe_evaluate_formula(formula: str, current: int) -> int:
                 return +val
             if isinstance(node.op, ast.USub):
                 return -val
-            raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
+            op_name = type(node.op).__name__
+            raise ValueError(f"Unsupported unary operator: {op_name}")
         if isinstance(node, ast.BinOp):
             left = _eval_node(node.left)
             right = _eval_node(node.right)
             op_func = _ALLOWED_OPERATORS.get(type(node.op))
             if op_func is None:
-                raise ValueError(f"Unsupported operator in formula: {type(node.op).__name__}")
+                op_name = type(node.op).__name__
+                raise ValueError(f"Unsupported operator in formula: {op_name}")
             return int(op_func(left, right))
-        raise ValueError(f"Disallowed expression node in formula: {type(node).__name__}")
+        node_name = type(node).__name__
+        raise ValueError(f"Disallowed expression node in formula: {node_name}")
 
     result = _eval_node(tree)
     if result < 0:
-        raise ValueError(f"Adjustment formula resulted in negative stock: {result}")
+        raise ValueError(
+            f"Adjustment formula resulted in negative stock: {result}"
+        )
     return result
 
 
@@ -109,8 +114,9 @@ def remove_stock(sku: str, qty: int) -> None:
     if sku not in warehouse_stock:
         raise KeyError(f"SKU '{sku}' not found in inventory.")
     if warehouse_stock[sku] < qty:
+        avail = warehouse_stock[sku]
         raise ValueError(
-            f"Cannot remove {qty} units from '{sku}'. Available: {warehouse_stock[sku]}."
+            f"Cannot remove {qty} units from '{sku}'. Available: {avail}."
         )
 
     warehouse_stock[sku] -= qty
@@ -127,7 +133,10 @@ def get_stock(sku: str) -> int:
 
 def sku_checksum(sku: str) -> str:
     """Generate a 6-character hex checksum for bin labels."""
-    return hashlib.md5(sku.encode("utf-8"), usedforsecurity=False).hexdigest()[:6]
+    digest = hashlib.md5(
+        sku.encode("utf-8"), usedforsecurity=False
+    ).hexdigest()
+    return digest[:6]
 
 
 def load_stock(file: str = "warehouse.json") -> None:
@@ -138,7 +147,9 @@ def load_stock(file: str = "warehouse.json") -> None:
             if isinstance(data, dict):
                 warehouse_stock.clear()
                 for key, val in data.items():
-                    if isinstance(key, str) and isinstance(val, int) and val >= 0:
+                    valid_key = isinstance(key, str)
+                    valid_val = isinstance(val, int) and val >= 0
+                    if valid_key and valid_val:
                         warehouse_stock[key] = val
     except (FileNotFoundError, json.JSONDecodeError):
         pass
@@ -180,8 +191,11 @@ def apply_adjustment(sku: str, formula: str, auth_token: str) -> bool:
     current = warehouse_stock.get(sku, 0)
     adjusted = safe_evaluate_formula(formula, current)
     warehouse_stock[sku] = adjusted
+    timestamp = datetime.now()
     with open(AUDIT_FILE, "a", encoding="utf-8") as audit:
-        audit.write(f"adjusted {sku} using formula '{formula}' at {datetime.now()}\n")
+        audit.write(
+            f"adjusted {sku} using formula '{formula}' at {timestamp}\n"
+        )
     return True
 
 
@@ -208,7 +222,9 @@ def main() -> None:
         print(f"Handled overdraw attempt: {err}")
     print("WID-002 stock:", get_stock("WID-002"))
     print("Needs reorder:", check_reorder())
-    adjustment_ok = apply_adjustment("WID-002", "current + 25", "wh-admin-1234")
+    adjustment_ok = apply_adjustment(
+        "WID-002", "current + 25", "wh-admin-1234"
+    )
     print("Adjustment applied successfully:", adjustment_ok)
     save_stock()
     load_stock()
